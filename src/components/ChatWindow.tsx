@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Message } from '@/types'; // Using alias
 import { UserIcon, BotIcon, AlertTriangleIcon, CheckCircleIcon, CogIcon, Edit3Icon, FileTextIcon, ZapIcon } from '@components/Icons'; // Using alias
 
-const ChatWindow: React.FC<{ messages: Message[]; isLoading: boolean }> = ({ messages, isLoading }) => {
+const ChatWindow: React.FC<{ messages: Message[] }> = ({ messages }) => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
