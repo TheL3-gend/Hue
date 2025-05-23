@@ -1,0 +1,22 @@
+/* Basic scrollbar styling for better aesthetics */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #2d3748; /* dark-700 */
+}
+::-webkit-scrollbar-thumb {
+  background: #4a5568; /* dark-600 */
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #718096; /* dark-500 */
+}
+
+/* Ensure body takes full height for some layouts if needed */
+body, html, #root {
+  height: 100%;
+  margin: 0;
+  font-family: sans-serif; /* Basic font stack */
+}
