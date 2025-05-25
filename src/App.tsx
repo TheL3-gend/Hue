@@ -257,3 +257,5 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => <AppContent />;
 
 export default App;
+
+// Note: This code assumes that the necessary context providers and components (like FileExplorer, ChatWindow, MonacoEditor, etc.) are correctly implemented and imported.
