@@ -2,7 +2,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useAiHelper } from './useAiHelper';
-import { AiActionType, MessageType, FilesState } from '@/types';
+import { AiActionType, FilesState } from '@/types';
+// If MessageType is exported from another module, import it from there, e.g.:
+// import { MessageType } from '@/constants';
+// Or define it locally for testing purposes:
+enum MessageType {
+  PLAN_STEP = 'PLAN_STEP',
+  CODE_UPDATE = 'CODE_UPDATE',
+  ERROR = 'ERROR'
+}
 import * as GenAIContext from '@contexts/GenAIContext';
 import { GEMINI_MODEL_NAME, GEMINI_SYSTEM_PROMPT_TEMPLATE, PROJECT_EXAMPLES, DEFAULT_PROJECT_KEY } from '@/constants';
 
@@ -263,7 +271,7 @@ ${secondCode}
     });
 
     it('should set error message if GenAI is not initialized and API key is present', () => {
-      (GenAIContext.useGenAI as vi.Mock).mockReturnValue({
+      (GenAIContext.useGenAI as Mock).mockReturnValue({
         initializeChatInContext: mockInitializeChatInContext,
         sendMessageStreamInContext: mockSendMessageStreamInContext,
         isGenAIInitialized: false, // Key difference
@@ -284,7 +292,7 @@ ${secondCode}
     });
 
      it('should not set error message if GenAI is not initialized and API key is missing (handled by UI)', () => {
-      (GenAIContext.useGenAI as vi.Mock).mockReturnValue({
+      (GenAIContext.useGenAI as Mock).mockReturnValue({
         initializeChatInContext: mockInitializeChatInContext,
         sendMessageStreamInContext: mockSendMessageStreamInContext,
         isGenAIInitialized: false,
