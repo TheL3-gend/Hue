@@ -23,9 +23,6 @@ const AppContent: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [currentPlan, setCurrentPlan] = useState<PlanStep[]>([]);
   const [currentTaskDescription, setCurrentTaskDescription] = useState<string>('');
-  
-  // This local accumulatedResponse is for one stream session
-  let accumulatedResponseForStream = "";
 
   const appLevelInitializeChat = useCallback((projectFiles: FilesState, projectKey: string) => {
     if (!isGenAIInitialized) {
@@ -187,14 +184,12 @@ const AppContent: React.FC = () => {
     setIsLoading(true);
     if (!currentTaskDescription) setCurrentTaskDescription(userInput); 
     setUserInput('');
-    accumulatedResponseForStream = ""; 
+    let accumulatedResponse = "";
 
     try {
       await sendMessageStreamInContext(
-        userInput,
-        (chunkText) => { 
-          accumulatedResponseForStream += chunkText;
-          // console.log("Chunk:", chunkText); // Optional: for debugging stream
+        userInput, (chunkText) => { accumulatedResponse += chunkText;
+          accumulatedResponse = chunkText;
         },
         (error) => { 
           console.error("Error from sendMessageStreamInContext (onError callback):", error);
@@ -203,7 +198,7 @@ const AppContent: React.FC = () => {
           setIsLoading(false);
         },
         () => { // onComplete
-          processAiResponse(accumulatedResponseForStream);
+          processAiResponse(accumulatedResponse);
           setIsLoading(false);
         }
       );
