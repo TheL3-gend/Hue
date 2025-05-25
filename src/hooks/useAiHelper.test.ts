@@ -1,5 +1,5 @@
 // src/hooks/useAiHelper.test.ts
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useAiHelper } from './useAiHelper';
 import { AiActionType, FilesState } from '@/types';
@@ -35,7 +35,7 @@ describe('useAiHelper', () => {
     mockInitializeChatInContext = vi.fn();
     mockSendMessageStreamInContext = vi.fn();
 
-    (GenAIContext.useGenAI as vi.Mock).mockReturnValue({
+    (GenAIContext.useGenAI as Mock).mockReturnValue({
       initializeChatInContext: mockInitializeChatInContext,
       sendMessageStreamInContext: mockSendMessageStreamInContext,
       isGenAIInitialized: true,
