@@ -13,6 +13,7 @@ export default defineConfig({
       '@constants': '/src/constants',
       '@': '/src', // Common alias for src root
       '@tailwindcss()': '/src/tailwindcss', // Alias for Tailwind CSS config
+      '@autoprefixer()': '/src/autoprefixer', // Alias for Autoprefixer config
     },
   },
   // Only env vars prefixed with VITE_ are exposed
