@@ -1,14 +1,39 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Message, FilesState, PlanStep, AiActionType } from '@/types';
 import { PROJECT_EXAMPLES, DEFAULT_PROJECT_KEY, GEMINI_SYSTEM_PROMPT_TEMPLATE } from '@/constants';
 import FileExplorer from '@components/FileExplorer';
 import ChatWindow from '@components/ChatWindow';
-import CodeViewer from '@components/CodeViewer';
+// import CodeViewer from '@components/CodeViewer'; // Remove CodeViewer
+import MonacoEditor from '@components/MonacoEditor'; // Import MonacoEditor
 import { LoadingSpinner, SendIcon, BrainIcon, AlertTriangleIcon, CheckCircleIcon, ChevronDownIcon } from '@components/Icons';
 import { useGenAI } from '@contexts/GenAIContext';
 // CreateChatParameters is needed for type safety when calling initializeChatInContext
 import { CreateChatParameters } from '@google/genai';
+
+// Helper function to determine Monaco language mode based on file extension
+const getMonacoLanguage = (fileName: string): string => {
+  const extension = fileName.split('.').pop();
+  switch (extension) {
+    case 'js':
+      return 'javascript';
+    case 'ts':
+      return 'typescript';
+    case 'tsx':
+      return 'typescript';
+    case 'json':
+      return 'json';
+    case 'css':
+      return 'css';
+    case 'html':
+      return 'html';
+    case 'md':
+      return 'markdown';
+    case 'py':
+      return 'python';
+    default:
+      return 'plaintext';
+  }
+};
 
 // Main application content component
 const AppContent: React.FC = () => {
@@ -39,11 +64,19 @@ const AppContent: React.FC = () => {
     const systemInstruction = GEMINI_SYSTEM_PROMPT_TEMPLATE.replace('{{FILE_NAMES}}', initialFileNames);
 
     const initialFileContents = Object.entries(projectFiles)
-      .map(([name, entry]) => `File: \`${name}\`\n\`\`\`tsx\n${entry.content}\n\`\`\``)
-      .join('\n\n');
+      .map(([name, entry]) => `File: \`${name}\`
+\`\`\`tsx
+${entry.content}
+\`\`\``)
+      .join(`
+
+`);
 
     const history = [
-      { role: "user", parts: [{ text: `Here is the initial state of the project files:\n${initialFileContents}\n\nMy first request will follow.` }] },
+      { role: "user", parts: [{ text: `Here is the initial state of the project files:
+${initialFileContents}
+
+My first request will follow.` }] },
       { role: "model", parts: [{ text: "Understood. I am ready for your request." }] }
     ];
     
@@ -79,7 +112,8 @@ const AppContent: React.FC = () => {
 
   const processAiResponse = (responseText: string | null | undefined) => {
     const textToProcess = responseText ?? "";
-    const lines = textToProcess.split(/\r?\n/);
+    const lines = textToProcess.split(new RegExp('?
+'));
     let currentCodeBlockFileName: string | null = null;
     let currentCodeBlockContent: string[] = [];
     let inCodeBlock = false;
@@ -96,7 +130,8 @@ const AppContent: React.FC = () => {
       } else if (line.startsWith(AiActionType.CODE_UPDATE)) {
         if (inCodeBlock && currentCodeBlockFileName) { 
            console.warn("Nested CODE_UPDATE detected. Processing previous block for:", currentCodeBlockFileName);
-           const codeContent = currentCodeBlockContent.join('\n');
+           const codeContent = currentCodeBlockContent.join('
+');
            setFiles(prevFiles => ({
              ...prevFiles,
              [currentCodeBlockFileName!]: { name: currentCodeBlockFileName!, content: codeContent, isNew: !prevFiles[currentCodeBlockFileName!] }
@@ -110,7 +145,8 @@ const AppContent: React.FC = () => {
       } else if (line.startsWith('\`\`\`tsx') && inCodeBlock) {
         // Start of code, skip this line
       } else if (line.startsWith('\`\`\`') && inCodeBlock && currentCodeBlockFileName) {
-        const codeContent = currentCodeBlockContent.join('\n'); 
+        const codeContent = currentCodeBlockContent.join('
+'); 
         setFiles(prevFiles => {
           const isNew = !prevFiles[currentCodeBlockFileName!];
           return {
@@ -152,7 +188,8 @@ const AppContent: React.FC = () => {
     }
     if (inCodeBlock && currentCodeBlockFileName) {
       console.warn("AI response ended with an unterminated code block for:", currentCodeBlockFileName);
-      const codeContent = currentCodeBlockContent.join('\n');
+      const codeContent = currentCodeBlockContent.join('
+');
       setFiles(prevFiles => {
         const isNew = !prevFiles[currentCodeBlockFileName!];
         return {
@@ -191,7 +228,7 @@ const AppContent: React.FC = () => {
         userInput, (chunkText) => { accumulatedResponse += chunkText;
           accumulatedResponse = chunkText;
         },
-        (error) => { 
+        (error) => {
           console.error("Error from sendMessageStreamInContext (onError callback):", error);
           const errorMessageText = error instanceof Error ? error.message : "An unknown streaming error occurred";
           setMessages(prevMessages => [...prevMessages, { id: Date.now().toString(), sender: 'system', text: `API Stream Error: ${errorMessageText}`, type: 'error' }]);
@@ -202,7 +239,7 @@ const AppContent: React.FC = () => {
           setIsLoading(false);
         }
       );
-    } catch (error) { 
+    } catch (error) {
       console.error("Error calling sendMessageStreamInContext:", error);
       const errorMessageText = error instanceof Error ? error.message : "An unknown error occurred setting up stream";
       setMessages(prevMessages => [...prevMessages, { id: Date.now().toString(), sender: 'system', text: `Streaming Setup Error: ${errorMessageText}`, type: 'error' }]);
@@ -217,6 +254,16 @@ const AppContent: React.FC = () => {
   const handleProjectChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newProjectKey = event.target.value;
     setSelectedProjectKey(newProjectKey);
+  };
+
+  // Handle code changes in Monaco Editor
+  const handleCodeChange = (newValue: string) => {
+    if (selectedFile) {
+      setFiles(prevFiles => ({
+        ...prevFiles,
+        [selectedFile]: { ...prevFiles[selectedFile], content: newValue }
+      }));
+    }
   };
 
   if (apiKeyMissing) { 
@@ -323,7 +370,13 @@ const AppContent: React.FC = () => {
       </div>
       
       {Object.keys(files).length > 0 && selectedFile && files[selectedFile] ? (
-        <CodeViewer file={files[selectedFile]} />
+        <div className="w-1/3 bg-gray-850 border-l border-gray-700">
+           <MonacoEditor 
+             language={getMonacoLanguage(selectedFile)} // Determine language dynamically
+             value={files[selectedFile].content} 
+             onChange={handleCodeChange}
+           />
+        </div>
       ) : (
          <div className="w-1/3 bg-gray-850 border-l border-gray-700 p-6 flex flex-col items-center justify-center text-gray-500">
            <AlertTriangleIcon className="w-16 h-16 mb-4 text-yellow-500" />
