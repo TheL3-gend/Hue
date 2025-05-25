@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Message, FilesState, PlanStep, AiActionType } from '@/types';
 import { PROJECT_EXAMPLES, DEFAULT_PROJECT_KEY, GEMINI_SYSTEM_PROMPT_TEMPLATE } from '@/constants';
 import FileExplorer from '@components/FileExplorer';
@@ -46,9 +46,11 @@ const AppContent: React.FC = () => {
     const fileNames = Object.keys(projectFiles).join(', ');
     const systemInstruction = GEMINI_SYSTEM_PROMPT_TEMPLATE.replace('{{FILE_NAMES}}', fileNames);
     const fileContents = Object.entries(projectFiles)
-      .map(([name, entry]) =>
-        `File: \`${name}\`\n\`\`\`${getMonacoLanguage(name)}\n${entry.content}\n\`\`\``
-      )
+      .map(([name, entry]) => {
+        const fileHeader = `File: \`${name}\``;
+        const codeBlock = `\`\`\`${getMonacoLanguage(name)}\n${entry.content}\n\`\`\``;
+        return `${fileHeader}\n${codeBlock}`;
+      })
       .join('\n\n');
 
     const history = [
@@ -257,5 +259,3 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => <AppContent />;
 
 export default App;
-
-// Note: This code assumes that the necessary context providers and components (like FileExplorer, ChatWindow, MonacoEditor, etc.) are correctly implemented and imported.
