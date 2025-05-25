@@ -1,17 +1,15 @@
-
-import React, { useState, useEffect, useCallback } from 'react';
-import { Message, FilesState, PlanStep } from '@/types'; // AiActionType removed
-import { PROJECT_EXAMPLES, DEFAULT_PROJECT_KEY } from '@/constants'; // GEMINI_SYSTEM_PROMPT_TEMPLATE removed
+import React, { useState, useEffect } from 'react';
+import { Message, FilesState, PlanStep } from '@/types';
+import { PROJECT_EXAMPLES, DEFAULT_PROJECT_KEY } from '@/constants';
 import FileExplorer from '@components/FileExplorer';
 import ChatWindow from '@components/ChatWindow';
 import CodeViewer from '@components/CodeViewer';
-import { LoadingSpinner, SendIcon, BrainIcon, AlertTriangleIcon, CheckCircleIcon, ChevronDownIcon } from '@components/Icons';
+import { LoadingSpinner, SendIcon, BrainIcon, AlertTriangleIcon, ChevronDownIcon } from '@components/Icons';
 import { useGenAI } from '@contexts/GenAIContext';
-import { useAiHelper } from '@/hooks/useAiHelper'; // Import the new hook
+import { useAiHelper } from '@/hooks/useAiHelper';
 
-// Main application content component
 const AppContent: React.FC = () => {
-  const { sendMessageStreamInContext, isGenAIInitialized, apiKeyMissing } = useGenAI(); // initializeChatInContext removed
+  const { sendMessageStreamInContext, isGenAIInitialized, apiKeyMissing } = useGenAI();
   
   const [selectedProjectKey, setSelectedProjectKey] = useState<string>(DEFAULT_PROJECT_KEY);
   const [files, setFiles] = useState<FilesState>(PROJECT_EXAMPLES[DEFAULT_PROJECT_KEY].files);
@@ -31,28 +29,40 @@ const AppContent: React.FC = () => {
     setCurrentTaskDescription,
   });
   
-  // This local accumulatedResponse is for one stream session
   let accumulatedResponseForStream = "";
+
+  useEffect(() => {
+    console.log("[App.tsx] Files state changed:", files);
+  }, [files]);
+
+  useEffect(() => {
+    console.log("[App.tsx] SelectedFile changed:", selectedFile);
+    if (selectedFile && files[selectedFile]) {
+      console.log(`[App.tsx] Content for new selectedFile ('${selectedFile}'):`, files[selectedFile].content.substring(0, 200) + "...");
+    } else if (selectedFile) {
+      console.warn(`[App.tsx] SelectedFile is '${selectedFile}', but no corresponding data found in files state.`);
+    }
+  }, [selectedFile, files]);
+
 
   useEffect(() => {
     if (isGenAIInitialized) {
       const currentProject = PROJECT_EXAMPLES[selectedProjectKey];
       if (currentProject) {
+        console.log(`[App.tsx] Project changed to: ${selectedProjectKey}. Initializing with files:`, currentProject.files);
         setFiles(currentProject.files);
         const firstFile = Object.keys(currentProject.files)[0];
         setSelectedFile(firstFile || '');
+        setMessages([]); // Clear messages for new project
         setCurrentPlan([]);
         setCurrentTaskDescription('');
         setUserInput('');
-        // Call the initialization function from the hook
         appLevelInitializeChat(currentProject.files, selectedProjectKey);
       }
     } else if (apiKeyMissing) {
-        // Handled by the main return block's conditional rendering.
-        // console.warn is fine here as it's a dev-facing warning.
-        console.warn("GenAI not initialized due to missing API Key. UI should reflect this.");
+        console.warn("[App.tsx] GenAI not initialized due to missing API Key.");
     }
-  }, [isGenAIInitialized, selectedProjectKey, appLevelInitializeChat, apiKeyMissing, setFiles, setSelectedFile, setCurrentPlan, setCurrentTaskDescription]); // Added state setters to dependency array as per hook's potential needs.
+  }, [isGenAIInitialized, selectedProjectKey, appLevelInitializeChat, apiKeyMissing]); // Removed state setters like setFiles, setSelectedFile from here to avoid potential re-trigger loops. They are set before appLevelInitializeChat.
 
 
   const handleSend = async () => {
@@ -75,22 +85,21 @@ const AppContent: React.FC = () => {
         userInput,
         (chunkText) => { 
           accumulatedResponseForStream += chunkText;
-          // console.log("Chunk:", chunkText); // Optional: for debugging stream
         },
         (error) => { 
-          console.error("Error from sendMessageStreamInContext (onError callback):", error);
+          console.error("[App.tsx] Error from sendMessageStreamInContext (onError callback):", error);
           const errorMessageText = error instanceof Error ? error.message : "An unexpected error occurred while receiving the AI's response.";
           setMessages(prevMessages => [...prevMessages, { id: Date.now().toString(), sender: 'system', text: `Stream Error: ${errorMessageText} Please try again.`, type: 'error' }]);
           setIsLoading(false);
         },
-        () => { // onComplete
-          // Call processAiResponse from the hook
+        () => { 
+          console.log("[App.tsx] STREAM COMPLETE. Full AI response to process:", accumulatedResponseForStream);
           processAiResponse(accumulatedResponseForStream);
           setIsLoading(false);
         }
       );
     } catch (error) { 
-      console.error("Error calling sendMessageStreamInContext:", error);
+      console.error("[App.tsx] Error calling sendMessageStreamInContext:", error);
       const errorMessageText = error instanceof Error ? error.message : "An unexpected error occurred before starting the AI communication.";
       setMessages(prevMessages => [...prevMessages, { id: Date.now().toString(), sender: 'system', text: `Error: ${errorMessageText} Please check your setup or try again.`, type: 'error' }]);
       setIsLoading(false);
@@ -98,24 +107,31 @@ const AppContent: React.FC = () => {
   };
   
   const handleFileSelect = (fileName: string) => {
+    console.log(`[App.tsx] handleFileSelect: User selected file '${fileName}'`);
     setSelectedFile(fileName);
   };
 
   const handleFileContentChange = (newContent: string) => {
     if (selectedFile && files[selectedFile]) {
-      setFiles(prevFiles => ({
-        ...prevFiles,
-        [selectedFile]: {
+      setFiles(prevFiles => {
+        const updatedFileEntry = {
           ...prevFiles[selectedFile],
           content: newContent,
-          isNew: false, // User editing implies it's no longer "new" in the AI sense
-        }
-      }));
+          isNew: false, 
+        };
+        const newState = {
+          ...prevFiles,
+          [selectedFile]: updatedFileEntry,
+        };
+        console.log("[App.tsx] handleFileContentChange - User edit. New files state:", newState);
+        return newState;
+      });
     }
   };
 
   const handleProjectChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newProjectKey = event.target.value;
+    console.log(`[App.tsx] handleProjectChange: User selected project '${newProjectKey}'`);
     setSelectedProjectKey(newProjectKey);
   };
 
@@ -193,7 +209,7 @@ const AppContent: React.FC = () => {
             )}
           </div>
         )}
-        <ChatWindow messages={messages} isLoading={isLoading} />
+        <ChatWindow messages={messages} />
         <div className="p-4 border-t border-gray-700 bg-gray-800">
           <div className="flex items-center bg-gray-700 rounded-lg p-1">
             <textarea
@@ -224,6 +240,7 @@ const AppContent: React.FC = () => {
       
       {Object.keys(files).length > 0 && selectedFile && files[selectedFile] ? (
         <CodeViewer 
+          key={selectedFile} // MODIFICATION: Added key prop here
           file={files[selectedFile]} 
           onFileContentChange={handleFileContentChange} 
         />
@@ -238,8 +255,6 @@ const AppContent: React.FC = () => {
   );
 };
 
-// The main App component now just renders AppContent.
-// GenAIProvider is wrapped around App in src/index.tsx.
 const App: React.FC = () => {
   return <AppContent />; 
 };

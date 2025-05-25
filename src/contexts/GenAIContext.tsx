@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, ReactNode, useState, useCallback } from 'react';
+import { createContext, useContext, useMemo, ReactNode, useState, useCallback } from 'react';
 // Corrected: Changed CreateChatParams to CreateChatParameters
 import { GoogleGenAI, Chat, CreateChatParameters } from '@google/genai';
 
