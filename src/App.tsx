@@ -1,18 +1,17 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Message, FilesState, PlanStep, AiActionType } from '@/types';
-import { PROJECT_EXAMPLES, DEFAULT_PROJECT_KEY, GEMINI_SYSTEM_PROMPT_TEMPLATE } from '@/constants';
+import { Message, FilesState, PlanStep } from '@/types'; // AiActionType removed
+import { PROJECT_EXAMPLES, DEFAULT_PROJECT_KEY } from '@/constants'; // GEMINI_SYSTEM_PROMPT_TEMPLATE removed
 import FileExplorer from '@components/FileExplorer';
 import ChatWindow from '@components/ChatWindow';
 import CodeViewer from '@components/CodeViewer';
 import { LoadingSpinner, SendIcon, BrainIcon, AlertTriangleIcon, CheckCircleIcon, ChevronDownIcon } from '@components/Icons';
 import { useGenAI } from '@contexts/GenAIContext';
-// CreateChatParameters is needed for type safety when calling initializeChatInContext
-import { CreateChatParameters } from '@google/genai';
+import { useAiHelper } from '@/hooks/useAiHelper'; // Import the new hook
 
 // Main application content component
 const AppContent: React.FC = () => {
-  const { initializeChatInContext, sendMessageStreamInContext, isGenAIInitialized, apiKeyMissing } = useGenAI();
+  const { sendMessageStreamInContext, isGenAIInitialized, apiKeyMissing } = useGenAI(); // initializeChatInContext removed
   
   const [selectedProjectKey, setSelectedProjectKey] = useState<string>(DEFAULT_PROJECT_KEY);
   const [files, setFiles] = useState<FilesState>(PROJECT_EXAMPLES[DEFAULT_PROJECT_KEY].files);
@@ -23,43 +22,17 @@ const AppContent: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [currentPlan, setCurrentPlan] = useState<PlanStep[]>([]);
   const [currentTaskDescription, setCurrentTaskDescription] = useState<string>('');
+
+  const { appLevelInitializeChat, processAiResponse } = useAiHelper({
+    setMessages,
+    setFiles,
+    setSelectedFile,
+    setCurrentPlan,
+    setCurrentTaskDescription,
+  });
   
   // This local accumulatedResponse is for one stream session
   let accumulatedResponseForStream = "";
-
-  const appLevelInitializeChat = useCallback((projectFiles: FilesState, projectKey: string) => {
-    if (!isGenAIInitialized) {
-      // Error message for API key missing is primarily handled by the main return block using apiKeyMissing.
-      // This console log is for debugging if initialization fails for other reasons.
-      if (!apiKeyMissing) { 
-         console.error("GenAI Client not initialized, but API key is supposedly present. Check GenAIContext initialization.");
-         setMessages([{id: 'genai-init-fail-context', sender: 'system', text: "AI Client initialization failed in context. Check console.", type: 'error'}]);
-      }
-      return;
-    }
-
-    const initialFileNames = Object.keys(projectFiles).join(', ');
-    const systemInstruction = GEMINI_SYSTEM_PROMPT_TEMPLATE.replace('{{FILE_NAMES}}', initialFileNames);
-
-    const initialFileContents = Object.entries(projectFiles)
-      .map(([name, entry]) => `File: \`${name}\`\n\`\`\`tsx\n${entry.content}\n\`\`\``)
-      .join('\n\n');
-
-    const history = [
-      { role: "user", parts: [{ text: `Here is the initial state of the project files:\n${initialFileContents}\n\nMy first request will follow.` }] },
-      { role: "model", parts: [{ text: "Understood. I am ready for your request." }] }
-    ];
-    
-    const chatParams: CreateChatParameters = {
-      model: 'gemini-2.5-flash-preview-04-17', 
-      config: { systemInstruction },
-      history: history
-    };
-    initializeChatInContext(chatParams); 
-
-    setMessages([{id: 'init-chat', sender: 'system', text: `AI context initialized for ${PROJECT_EXAMPLES[projectKey]?.name || 'project'}. Ready for your request.`}]);
-  }, [isGenAIInitialized, initializeChatInContext, apiKeyMissing]);
-
 
   useEffect(() => {
     if (isGenAIInitialized) {
@@ -71,113 +44,21 @@ const AppContent: React.FC = () => {
         setCurrentPlan([]);
         setCurrentTaskDescription('');
         setUserInput('');
+        // Call the initialization function from the hook
         appLevelInitializeChat(currentProject.files, selectedProjectKey);
       }
     } else if (apiKeyMissing) {
         // Handled by the main return block's conditional rendering.
+        // console.warn is fine here as it's a dev-facing warning.
         console.warn("GenAI not initialized due to missing API Key. UI should reflect this.");
     }
-  }, [isGenAIInitialized, selectedProjectKey, appLevelInitializeChat, apiKeyMissing]);
+  }, [isGenAIInitialized, selectedProjectKey, appLevelInitializeChat, apiKeyMissing, setFiles, setSelectedFile, setCurrentPlan, setCurrentTaskDescription]); // Added state setters to dependency array as per hook's potential needs.
 
-
-  const processAiResponse = (responseText: string | null | undefined) => {
-    const textToProcess = responseText ?? "";
-    const lines = textToProcess.split(/\r?\n/);
-    let currentCodeBlockFileName: string | null = null;
-    let currentCodeBlockContent: string[] = [];
-    let inCodeBlock = false;
-
-    const newMessages: Message[] = [];
-    const newPlanSteps: PlanStep[] = [];
-
-    for (const line of lines) {
-      if (line.startsWith(AiActionType.PLAN)) {
-        const description = line.substring(AiActionType.PLAN.length).trim();
-        const planStep = { id: Date.now().toString() + Math.random(), description };
-        newPlanSteps.push(planStep);
-        newMessages.push({ id: planStep.id, sender: 'ai', text: description, type: 'plan_step' });
-      } else if (line.startsWith(AiActionType.CODE_UPDATE)) {
-        if (inCodeBlock && currentCodeBlockFileName) { 
-           console.warn("Nested CODE_UPDATE detected. Processing previous block for:", currentCodeBlockFileName);
-           const codeContent = currentCodeBlockContent.join('\n');
-           setFiles(prevFiles => ({
-             ...prevFiles,
-             [currentCodeBlockFileName!]: { name: currentCodeBlockFileName!, content: codeContent, isNew: !prevFiles[currentCodeBlockFileName!] }
-           }));
-           newMessages.push({ id: Date.now().toString() + Math.random(), sender: 'ai', text: `Updated file: ${currentCodeBlockFileName}`, type: 'code_update', fileName: currentCodeBlockFileName, codeContent });
-           setSelectedFile(currentCodeBlockFileName);
-        }
-        currentCodeBlockFileName = line.substring(AiActionType.CODE_UPDATE.length).trim().replace(/[\`]/g, '');
-        inCodeBlock = true;
-        currentCodeBlockContent = []; 
-      } else if (line.startsWith('\`\`\`tsx') && inCodeBlock) {
-        // Start of code, skip this line
-      } else if (line.startsWith('\`\`\`') && inCodeBlock && currentCodeBlockFileName) {
-        const codeContent = currentCodeBlockContent.join('\n'); 
-        setFiles(prevFiles => {
-          const isNew = !prevFiles[currentCodeBlockFileName!];
-          return {
-          ...prevFiles,
-          [currentCodeBlockFileName!]: { name: currentCodeBlockFileName!, content: codeContent, isNew }
-        }});
-        newMessages.push({ id: Date.now().toString(), sender: 'ai', text: `Updated file: ${currentCodeBlockFileName}`, type: 'code_update', fileName: currentCodeBlockFileName, codeContent });
-        setSelectedFile(currentCodeBlockFileName);
-        inCodeBlock = false;
-        currentCodeBlockFileName = null;
-        currentCodeBlockContent = [];
-      } else if (inCodeBlock) {
-        currentCodeBlockContent.push(line);
-      } else if (line.startsWith(AiActionType.SIMULATING_TEST)) {
-        const text = line.substring(AiActionType.SIMULATING_TEST.length).trim();
-        newMessages.push({ id: Date.now().toString(), sender: 'ai', text: `Simulating test: ${text}`, type: 'test_log' });
-      } else if (line.startsWith(AiActionType.TEST_RESULT)) {
-        const text = line.substring(AiActionType.TEST_RESULT.length).trim();
-        newMessages.push({ id: Date.now().toString(), sender: 'ai', text: `Test result: ${text}`, type: 'test_log' });
-      } else if (line.startsWith(AiActionType.TASK_COMPLETE)) {
-        newMessages.push({ id: Date.now().toString(), sender: 'ai', text: 'Task Complete!', type: 'task_complete' });
-        setCurrentPlan([]);
-        setCurrentTaskDescription('');
-        setFiles(prevFiles => {
-          const updatedFiles = {...prevFiles};
-          Object.keys(updatedFiles).forEach(key => {
-            if(updatedFiles[key].isNew) {
-              updatedFiles[key] = {...updatedFiles[key], isNew: false};
-            }
-          });
-          return updatedFiles;
-        });
-      } else if (line.startsWith(AiActionType.ERROR)) {
-        const text = line.substring(AiActionType.ERROR.length).trim();
-        newMessages.push({ id: Date.now().toString(), sender: 'ai', text: `Error: ${text}`, type: 'error' });
-      } else if (line.trim()) { 
-        newMessages.push({ id: Date.now().toString(), sender: 'ai', text: line });
-      }
-    }
-    if (inCodeBlock && currentCodeBlockFileName) {
-      console.warn("AI response ended with an unterminated code block for:", currentCodeBlockFileName);
-      const codeContent = currentCodeBlockContent.join('\n');
-      setFiles(prevFiles => {
-        const isNew = !prevFiles[currentCodeBlockFileName!];
-        return {
-        ...prevFiles,
-        [currentCodeBlockFileName!]: { name: currentCodeBlockFileName!, content: codeContent, isNew }
-      }});
-      newMessages.push({ id: Date.now().toString(), sender: 'ai', text: `Force-closed code update for ${currentCodeBlockFileName}`, type: 'code_update', fileName: currentCodeBlockFileName, codeContent });
-      setSelectedFile(currentCodeBlockFileName);
-    }
-    
-    if (newPlanSteps.length > 0) {
-      setCurrentPlan(prev => [...prev, ...newPlanSteps]);
-    }
-    if (newMessages.length > 0) {
-      setMessages(prev => [...prev, ...newMessages]);
-    }
-  };
 
   const handleSend = async () => {
     if (!userInput.trim() || isLoading || !isGenAIInitialized) {
         if(!isGenAIInitialized) {
-             setMessages(prev => [...prev, {id: 'send-fail-no-init', sender: 'system', text: "Cannot send: AI not initialized. Check API Key & console.", type: 'error'}]);
+             setMessages(prev => [...prev, {id: 'send-fail-no-init', sender: 'system', text: "Cannot send: AI is not initialized. Please check your API Key setup or try refreshing.", type: 'error'}]);
         }
         return;
     }
@@ -198,25 +79,39 @@ const AppContent: React.FC = () => {
         },
         (error) => { 
           console.error("Error from sendMessageStreamInContext (onError callback):", error);
-          const errorMessageText = error instanceof Error ? error.message : "An unknown streaming error occurred";
-          setMessages(prevMessages => [...prevMessages, { id: Date.now().toString(), sender: 'system', text: `API Stream Error: ${errorMessageText}`, type: 'error' }]);
+          const errorMessageText = error instanceof Error ? error.message : "An unexpected error occurred while receiving the AI's response.";
+          setMessages(prevMessages => [...prevMessages, { id: Date.now().toString(), sender: 'system', text: `Stream Error: ${errorMessageText} Please try again.`, type: 'error' }]);
           setIsLoading(false);
         },
         () => { // onComplete
+          // Call processAiResponse from the hook
           processAiResponse(accumulatedResponseForStream);
           setIsLoading(false);
         }
       );
     } catch (error) { 
       console.error("Error calling sendMessageStreamInContext:", error);
-      const errorMessageText = error instanceof Error ? error.message : "An unknown error occurred setting up stream";
-      setMessages(prevMessages => [...prevMessages, { id: Date.now().toString(), sender: 'system', text: `Streaming Setup Error: ${errorMessageText}`, type: 'error' }]);
+      const errorMessageText = error instanceof Error ? error.message : "An unexpected error occurred before starting the AI communication.";
+      setMessages(prevMessages => [...prevMessages, { id: Date.now().toString(), sender: 'system', text: `Error: ${errorMessageText} Please check your setup or try again.`, type: 'error' }]);
       setIsLoading(false);
     }
   };
   
   const handleFileSelect = (fileName: string) => {
     setSelectedFile(fileName);
+  };
+
+  const handleFileContentChange = (newContent: string) => {
+    if (selectedFile && files[selectedFile]) {
+      setFiles(prevFiles => ({
+        ...prevFiles,
+        [selectedFile]: {
+          ...prevFiles[selectedFile],
+          content: newContent,
+          isNew: false, // User editing implies it's no longer "new" in the AI sense
+        }
+      }));
+    }
   };
 
   const handleProjectChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -229,9 +124,9 @@ const AppContent: React.FC = () => {
       <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
         <div className="p-8 bg-red-800 rounded-lg shadow-xl text-center max-w-md">
           <AlertTriangleIcon className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">API Key Error</h1>
-          <p className="mb-1">VITE_GEMINI_API_KEY environment variable is not set, or the AI client failed to initialize.</p>
-          <p className="text-sm text-red-200">Please ensure the VITE_GEMINI_API_KEY is correctly set in your .env.local file and restart the development server.</p>
+          <h1 className="text-2xl font-bold mb-2">API Key Configuration Error</h1>
+          <p className="mb-1">The VITE_GEMINI_API_KEY environment variable appears to be missing or invalid, preventing the AI from initializing.</p>
+          <p className="text-sm text-red-200">Please refer to the setup instructions to ensure the API key is correctly configured in your environment and restart the application.</p>
         </div>
       </div>
     );
@@ -243,8 +138,8 @@ const AppContent: React.FC = () => {
         <div className="p-8 bg-yellow-700 rounded-lg shadow-xl text-center max-w-md">
           <BrainIcon className="w-16 h-16 text-yellow-300 mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">AI Not Ready</h1>
-          <p className="mb-1">The AI model is currently initializing.</p>
-          <p className="text-sm text-yellow-200">Please wait a moment. If this persists, check the console for errors or try refreshing.</p>
+          <p className="mb-1">The AI model is currently initializing or encountered a problem during startup.</p>
+          <p className="text-sm text-yellow-200">Please wait a few moments. If this message persists, try refreshing the page. If the issue continues, ensure your API key is valid and your internet connection is stable.</p>
            <LoadingSpinner className="w-8 h-8 mx-auto mt-4" />
         </div>
       </div>
@@ -328,7 +223,10 @@ const AppContent: React.FC = () => {
       </div>
       
       {Object.keys(files).length > 0 && selectedFile && files[selectedFile] ? (
-        <CodeViewer file={files[selectedFile]} />
+        <CodeViewer 
+          file={files[selectedFile]} 
+          onFileContentChange={handleFileContentChange} 
+        />
       ) : (
          <div className="w-1/3 bg-gray-850 border-l border-gray-700 p-6 flex flex-col items-center justify-center text-gray-500">
            <AlertTriangleIcon className="w-16 h-16 mb-4 text-yellow-500" />
