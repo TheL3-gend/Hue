@@ -47,7 +47,7 @@ const AppContent: React.FC = () => {
     const systemInstruction = GEMINI_SYSTEM_PROMPT_TEMPLATE.replace('{{FILE_NAMES}}', fileNames);
     const fileContents = Object.entries(projectFiles)
       .map(([name, entry]) =>
-        `File: \\`${name}\\`\n\`\`\`${getMonacoLanguage(name)}\n${entry.content}\n\`\`\``
+        `File: \`${name}\`\n\`\`\`${getMonacoLanguage(name)}\n${entry.content}\n\`\`\``
       )
       .join('\n\n');
 
