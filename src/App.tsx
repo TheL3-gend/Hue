@@ -1,43 +1,17 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Message, FilesState, PlanStep, AiActionType } from '@/types';
 import { PROJECT_EXAMPLES, DEFAULT_PROJECT_KEY, GEMINI_SYSTEM_PROMPT_TEMPLATE } from '@/constants';
 import FileExplorer from '@components/FileExplorer';
 import ChatWindow from '@components/ChatWindow';
-// import CodeViewer from '@components/CodeViewer'; // Remove CodeViewer
-import MonacoEditor from '@components/MonacoEditor'; // Import MonacoEditor
+import CodeViewer from '@components/CodeViewer';
 import { LoadingSpinner, SendIcon, BrainIcon, AlertTriangleIcon, CheckCircleIcon, ChevronDownIcon } from '@components/Icons';
 import { useGenAI } from '@contexts/GenAIContext';
 // CreateChatParameters is needed for type safety when calling initializeChatInContext
 import { CreateChatParameters } from '@google/genai';
 
-// Helper function to determine Monaco language mode based on file extension
-const getMonacoLanguage = (fileName: string): string => {
-  const extension = fileName.split('.').pop();
-  switch (extension) {
-    case 'js':
-      return 'javascript';
-    case 'ts':
-      return 'typescript';
-    case 'tsx':
-      return 'typescript';
-    case 'json':
-      return 'json';
-    case 'css':
-      return 'css';
-    case 'html':
-      return 'html';
-    case 'md':
-      return 'markdown';
-    case 'py':
-      return 'python';
-    default:
-      return 'plaintext';
-  }
-};
-
-// Main application content component
 const AppContent: React.FC = () => {
-  const { initializeChatInContext, sendMessageStreamInContext, isGenAIInitialized, apiKeyMissing } = useGenAI();
+  const { sendMessageStreamInContext, isGenAIInitialized, apiKeyMissing } = useGenAI();
   
   const [selectedProjectKey, setSelectedProjectKey] = useState<string>(DEFAULT_PROJECT_KEY);
   const [files, setFiles] = useState<FilesState>(PROJECT_EXAMPLES[DEFAULT_PROJECT_KEY].files);
@@ -48,6 +22,9 @@ const AppContent: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [currentPlan, setCurrentPlan] = useState<PlanStep[]>([]);
   const [currentTaskDescription, setCurrentTaskDescription] = useState<string>('');
+  
+  // This local accumulatedResponse is for one stream session
+  let accumulatedResponseForStream = "";
 
   const appLevelInitializeChat = useCallback((projectFiles: FilesState, projectKey: string) => {
     if (!isGenAIInitialized) {
@@ -64,19 +41,11 @@ const AppContent: React.FC = () => {
     const systemInstruction = GEMINI_SYSTEM_PROMPT_TEMPLATE.replace('{{FILE_NAMES}}', initialFileNames);
 
     const initialFileContents = Object.entries(projectFiles)
-      .map(([name, entry]) => `File: \`${name}\`
-\`\`\`tsx
-${entry.content}
-\`\`\``)
-      .join(`
-
-`);
+      .map(([name, entry]) => `File: \`${name}\`\n\`\`\`tsx\n${entry.content}\n\`\`\``)
+      .join('\n\n');
 
     const history = [
-      { role: "user", parts: [{ text: `Here is the initial state of the project files:
-${initialFileContents}
-
-My first request will follow.` }] },
+      { role: "user", parts: [{ text: `Here is the initial state of the project files:\n${initialFileContents}\n\nMy first request will follow.` }] },
       { role: "model", parts: [{ text: "Understood. I am ready for your request." }] }
     ];
     
@@ -95,25 +64,25 @@ My first request will follow.` }] },
     if (isGenAIInitialized) {
       const currentProject = PROJECT_EXAMPLES[selectedProjectKey];
       if (currentProject) {
+        console.log(`[App.tsx] Project changed to: ${selectedProjectKey}. Initializing with files:`, currentProject.files);
         setFiles(currentProject.files);
         const firstFile = Object.keys(currentProject.files)[0];
         setSelectedFile(firstFile || '');
+        setMessages([]); // Clear messages for new project
         setCurrentPlan([]);
         setCurrentTaskDescription('');
         setUserInput('');
         appLevelInitializeChat(currentProject.files, selectedProjectKey);
       }
     } else if (apiKeyMissing) {
-        // Handled by the main return block's conditional rendering.
-        console.warn("GenAI not initialized due to missing API Key. UI should reflect this.");
+        console.warn("[App.tsx] GenAI not initialized due to missing API Key.");
     }
   }, [isGenAIInitialized, selectedProjectKey, appLevelInitializeChat, apiKeyMissing]);
 
 
   const processAiResponse = (responseText: string | null | undefined) => {
     const textToProcess = responseText ?? "";
-    const lines = textToProcess.split(new RegExp('?
-'));
+    const lines = textToProcess.split(/\r?\n/);
     let currentCodeBlockFileName: string | null = null;
     let currentCodeBlockContent: string[] = [];
     let inCodeBlock = false;
@@ -130,8 +99,7 @@ My first request will follow.` }] },
       } else if (line.startsWith(AiActionType.CODE_UPDATE)) {
         if (inCodeBlock && currentCodeBlockFileName) { 
            console.warn("Nested CODE_UPDATE detected. Processing previous block for:", currentCodeBlockFileName);
-           const codeContent = currentCodeBlockContent.join('
-');
+           const codeContent = currentCodeBlockContent.join('\n');
            setFiles(prevFiles => ({
              ...prevFiles,
              [currentCodeBlockFileName!]: { name: currentCodeBlockFileName!, content: codeContent, isNew: !prevFiles[currentCodeBlockFileName!] }
@@ -145,8 +113,7 @@ My first request will follow.` }] },
       } else if (line.startsWith('\`\`\`tsx') && inCodeBlock) {
         // Start of code, skip this line
       } else if (line.startsWith('\`\`\`') && inCodeBlock && currentCodeBlockFileName) {
-        const codeContent = currentCodeBlockContent.join('
-'); 
+        const codeContent = currentCodeBlockContent.join('\n'); 
         setFiles(prevFiles => {
           const isNew = !prevFiles[currentCodeBlockFileName!];
           return {
@@ -188,8 +155,7 @@ My first request will follow.` }] },
     }
     if (inCodeBlock && currentCodeBlockFileName) {
       console.warn("AI response ended with an unterminated code block for:", currentCodeBlockFileName);
-      const codeContent = currentCodeBlockContent.join('
-');
+      const codeContent = currentCodeBlockContent.join('\n');
       setFiles(prevFiles => {
         const isNew = !prevFiles[currentCodeBlockFileName!];
         return {
@@ -211,7 +177,7 @@ My first request will follow.` }] },
   const handleSend = async () => {
     if (!userInput.trim() || isLoading || !isGenAIInitialized) {
         if(!isGenAIInitialized) {
-             setMessages(prev => [...prev, {id: 'send-fail-no-init', sender: 'system', text: "Cannot send: AI not initialized. Check API Key & console.", type: 'error'}]);
+             setMessages(prev => [...prev, {id: 'send-fail-no-init', sender: 'system', text: "Cannot send: AI is not initialized. Please check your API Key setup or try refreshing.", type: 'error'}]);
         }
         return;
     }
@@ -225,21 +191,23 @@ My first request will follow.` }] },
 
     try {
       await sendMessageStreamInContext(
-        userInput, (chunkText) => { accumulatedResponse += chunkText;
-          accumulatedResponse = chunkText;
+        userInput,
+        (chunkText) => { 
+          accumulatedResponseForStream += chunkText;
+          // console.log("Chunk:", chunkText); // Optional: for debugging stream
         },
-        (error) => {
+        (error) => { 
           console.error("Error from sendMessageStreamInContext (onError callback):", error);
           const errorMessageText = error instanceof Error ? error.message : "An unknown streaming error occurred";
           setMessages(prevMessages => [...prevMessages, { id: Date.now().toString(), sender: 'system', text: `API Stream Error: ${errorMessageText}`, type: 'error' }]);
           setIsLoading(false);
         },
         () => { // onComplete
-          processAiResponse(accumulatedResponse);
+          processAiResponse(accumulatedResponseForStream);
           setIsLoading(false);
         }
       );
-    } catch (error) {
+    } catch (error) { 
       console.error("Error calling sendMessageStreamInContext:", error);
       const errorMessageText = error instanceof Error ? error.message : "An unknown error occurred setting up stream";
       setMessages(prevMessages => [...prevMessages, { id: Date.now().toString(), sender: 'system', text: `Streaming Setup Error: ${errorMessageText}`, type: 'error' }]);
@@ -248,11 +216,31 @@ My first request will follow.` }] },
   };
   
   const handleFileSelect = (fileName: string) => {
+    console.log(`[App.tsx] handleFileSelect: User selected file '${fileName}'`);
     setSelectedFile(fileName);
+  };
+
+  const handleFileContentChange = (newContent: string) => {
+    if (selectedFile && files[selectedFile]) {
+      setFiles(prevFiles => {
+        const updatedFileEntry = {
+          ...prevFiles[selectedFile],
+          content: newContent,
+          isNew: false, 
+        };
+        const newState = {
+          ...prevFiles,
+          [selectedFile]: updatedFileEntry,
+        };
+        console.log("[App.tsx] handleFileContentChange - User edit. New files state:", newState);
+        return newState;
+      });
+    }
   };
 
   const handleProjectChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newProjectKey = event.target.value;
+    console.log(`[App.tsx] handleProjectChange: User selected project '${newProjectKey}'`);
     setSelectedProjectKey(newProjectKey);
   };
 
@@ -271,9 +259,9 @@ My first request will follow.` }] },
       <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
         <div className="p-8 bg-red-800 rounded-lg shadow-xl text-center max-w-md">
           <AlertTriangleIcon className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">API Key Error</h1>
-          <p className="mb-1">VITE_GEMINI_API_KEY environment variable is not set, or the AI client failed to initialize.</p>
-          <p className="text-sm text-red-200">Please ensure the VITE_GEMINI_API_KEY is correctly set in your .env.local file and restart the development server.</p>
+          <h1 className="text-2xl font-bold mb-2">API Key Configuration Error</h1>
+          <p className="mb-1">The VITE_GEMINI_API_KEY environment variable appears to be missing or invalid, preventing the AI from initializing.</p>
+          <p className="text-sm text-red-200">Please refer to the setup instructions to ensure the API key is correctly configured in your environment and restart the application.</p>
         </div>
       </div>
     );
@@ -285,8 +273,8 @@ My first request will follow.` }] },
         <div className="p-8 bg-yellow-700 rounded-lg shadow-xl text-center max-w-md">
           <BrainIcon className="w-16 h-16 text-yellow-300 mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">AI Not Ready</h1>
-          <p className="mb-1">The AI model is currently initializing.</p>
-          <p className="text-sm text-yellow-200">Please wait a moment. If this persists, check the console for errors or try refreshing.</p>
+          <p className="mb-1">The AI model is currently initializing or encountered a problem during startup.</p>
+          <p className="text-sm text-yellow-200">Please wait a few moments. If this message persists, try refreshing the page. If the issue continues, ensure your API key is valid and your internet connection is stable.</p>
            <LoadingSpinner className="w-8 h-8 mx-auto mt-4" />
         </div>
       </div>
@@ -340,7 +328,7 @@ My first request will follow.` }] },
             )}
           </div>
         )}
-        <ChatWindow messages={messages} isLoading={isLoading} />
+        <ChatWindow messages={messages} />
         <div className="p-4 border-t border-gray-700 bg-gray-800">
           <div className="flex items-center bg-gray-700 rounded-lg p-1">
             <textarea
@@ -370,13 +358,7 @@ My first request will follow.` }] },
       </div>
       
       {Object.keys(files).length > 0 && selectedFile && files[selectedFile] ? (
-        <div className="w-1/3 bg-gray-850 border-l border-gray-700">
-           <MonacoEditor 
-             language={getMonacoLanguage(selectedFile)} // Determine language dynamically
-             value={files[selectedFile].content} 
-             onChange={handleCodeChange}
-           />
-        </div>
+        <CodeViewer file={files[selectedFile]} />
       ) : (
          <div className="w-1/3 bg-gray-850 border-l border-gray-700 p-6 flex flex-col items-center justify-center text-gray-500">
            <AlertTriangleIcon className="w-16 h-16 mb-4 text-yellow-500" />
@@ -388,8 +370,6 @@ My first request will follow.` }] },
   );
 };
 
-// The main App component now just renders AppContent.
-// GenAIProvider is wrapped around App in src/index.tsx.
 const App: React.FC = () => {
   return <AppContent />; 
 };

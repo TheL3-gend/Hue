@@ -12,6 +12,7 @@ export default defineConfig({
       '@utils': '/src/utils', // Added for consistency if needed later
       '@constants': '/src/constants',
       '@': '/src', // Common alias for src root
+      '@tailwindcss()': '/src/tailwindcss', // Alias for Tailwind CSS config
     },
   },
   // Only env vars prefixed with VITE_ are exposed
