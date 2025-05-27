@@ -5,6 +5,7 @@ import FileExplorer from '@components/FileExplorer';
 import ChatWindow from '@components/ChatWindow';
 import MonacoEditor from '@components/MonacoEditor';
 import { LoadingSpinner, SendIcon, BrainIcon, AlertTriangleIcon, ChevronDownIcon } from '@components/Icons';
+import ThemeToggle from '@components/ThemeToggle'; // Add this line
 import { useGenAI } from '@contexts/GenAIContext';
 import { CreateChatParameters } from '@google/genai';
 
@@ -205,7 +206,10 @@ const AppContent: React.FC = () => {
     <div className="flex h-screen bg-gray-900 text-gray-100">
       <div className="w-72 bg-gray-800 border-r border-gray-700 flex flex-col">
         <div className="p-4 border-b border-gray-700">
-          <label htmlFor="project-select" className="block text-sm font-medium text-gray-400 mb-1">Current Project:</label>
+          <div className="flex justify-between items-center mb-1">
+            <label htmlFor="project-select" className="block text-sm font-medium text-gray-400">Current Project:</label>
+            <ThemeToggle />
+          </div>
           <div className="relative">
             <select id="project-select" value={selectedProjectKey} onChange={handleProjectChange} disabled={isLoading || !isGenAIInitialized} className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none">
               {Object.entries(PROJECT_EXAMPLES).map(([key, proj]) => <option key={key} value={key}>{proj.name}</option>)}

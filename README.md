@@ -11,7 +11,7 @@ The AI Studio App is a web application designed to facilitate interactive coding
 *   **Integrated Monaco Code Editor:** View and edit your code with a feature-rich editor, complete with syntax highlighting and other standard IDE features.
 *   **Real-time Code Updates:** See changes suggested by the AI instantly reflected in the editor and project files.
 *   **Plan & Task Execution:** The AI can outline a plan for complex tasks and execute them step-by-step.
-*   **(Example Feature) Theme Toggle:** Easily switch between light and dark themes for user preference (if applicable).
+*   **Theme Toggle:** Switch between light and dark themes. The theme preference is saved locally.
 
 ## Getting Started / Installation
 

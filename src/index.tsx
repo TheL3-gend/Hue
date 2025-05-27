@@ -2,10 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from '@/App'; // Using alias
 import { GenAIProvider } from '@contexts/GenAIContext';
-// ThemeProvider for example apps is typically within their own structure.
-// Hue's global styles are via Tailwind/index.css.
-// If a global ThemeProvider for Hue itself is desired, it can be added.
-// For now, keeping it clean as ThemeContext is for in-project themes.
+import { ThemeProvider } from '@contexts/ThemeContext'; // Import ThemeProvider
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -15,8 +12,10 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <GenAIProvider>
-      <App />
-    </GenAIProvider>
+    <ThemeProvider> {/* Add ThemeProvider wrapper */}
+      <GenAIProvider>
+        <App />
+      </GenAIProvider>
+    </ThemeProvider> {/* Close ThemeProvider wrapper */}
   </React.StrictMode>
 );
