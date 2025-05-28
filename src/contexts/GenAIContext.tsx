@@ -35,14 +35,13 @@ export function GenAIProvider({ children }: { children: ReactNode }) {
         setAiClient(client);
         setIsGenAIInitialized(true);
         setApiKeyMissing(false);
-        console.log("GoogleGenAI client initialized successfully with VITE_GEMINI_API_KEY from import.meta.env.");
       } catch (error) {
         console.error("Failed to initialize GoogleGenAI client with VITE_GEMINI_API_KEY from import.meta.env:", error);
         setIsGenAIInitialized(false);
         setApiKeyMissing(true); 
       }
     } else {
-      console.warn("VITE_GEMINI_API_KEY environment variable not found in import.meta.env. Ensure it's set in your .env.local file.");
+      console.warn("VITE_GEMINI_API_KEY environment variable not found. Ensure it's set in your .env file.");
       setIsGenAIInitialized(false);
       setApiKeyMissing(true);
     }

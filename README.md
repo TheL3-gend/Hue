@@ -11,7 +11,7 @@ The AI Studio App is a web application designed to facilitate interactive coding
 *   **Integrated Monaco Code Editor:** View and edit your code with a feature-rich editor, complete with syntax highlighting and other standard IDE features.
 *   **Real-time Code Updates:** See changes suggested by the AI instantly reflected in the editor and project files.
 *   **Plan & Task Execution:** The AI can outline a plan for complex tasks and execute them step-by-step.
-*   **(Example Feature) Theme Toggle:** Easily switch between light and dark themes for user preference (if applicable).
+*   **Theme Toggle:** Switch between light and dark themes. The theme preference is saved locally.
 
 ## Getting Started / Installation
 
@@ -37,12 +37,12 @@ This section guides you through setting up and running the AI Studio App locally
 
 3.  **Set up your Gemini API Key:**
     *   You need a Gemini API key to use the AI features. You can obtain one from [Google AI Studio](https://aistudio.google.com/app/apikey) (or other relevant Google Cloud services).
-    *   In the root directory of the project, create a new file named `.env.local`.
-    *   Open the `.env.local` file and add your API key in the following format:
+    *   In the root directory of the project, ensure a file named `.env` exists. If it doesn't, create it. (The previous steps in this guide might have already created this file with a placeholder).
+    *   Open the `.env` file and add or modify your API key in the following format:
         ```env
-        GEMINI_API_KEY=your_actual_api_key_here
+        VITE_GEMINI_API_KEY=your_actual_api_key_here
         ```
-    *   **Important:** Replace `your_actual_api_key_here` with your actual Gemini API key.
+    *   **Important:** Replace `your_actual_api_key_here` with your actual Gemini API key. If the file was created with a placeholder, replace the placeholder value.
 
 4.  **Run the Application:**
     After installing dependencies and setting up your API key, run the development server:
@@ -54,10 +54,10 @@ This section guides you through setting up and running the AI Studio App locally
 **Troubleshooting:**
 
 *   **API Key Not Working / "Authentication Error":**
-    *   Ensure the API key is copied exactly into the `.env.local` file.
-    *   Verify that the file is named precisely `.env.local` (note the leading dot).
-    *   Confirm that the `.env.local` file is located in the root directory of the project (the same directory as `package.json`).
-    *   Restart the development server (`npm run dev`) after creating or modifying the `.env.local` file.
+    *   Ensure the API key is copied exactly into the `.env` file under the `VITE_GEMINI_API_KEY` variable.
+    *   Verify that the file is named precisely `.env` (note the leading dot).
+    *   Confirm that the `.env` file is located in the root directory of the project (the same directory as `package.json`).
+    *   Restart the development server (`npm run dev`) after creating or modifying the `.env` file and the API key.
     *   Check if your API key is active and has the necessary permissions in your Google Cloud project / AI Studio.
 
 *   **"GenAI Client not initialized" / "Failed to initialize AI":**

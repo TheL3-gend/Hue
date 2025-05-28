@@ -9,11 +9,8 @@ export default defineConfig({
     alias: {
       '@components': '/src/components',
       '@contexts': '/src/contexts',
-      '@utils': '/src/utils', // Added for consistency if needed later
       '@constants': '/src/constants',
-      '@': '/src', // Common alias for src root
-      '@tailwindcss()': '/src/tailwindcss', // Alias for Tailwind CSS config
-      '@autoprefixer()': '/src/autoprefixer', // Alias for Autoprefixer config
+      '@': '/src',
     },
   },
   // Only env vars prefixed with VITE_ are exposed
