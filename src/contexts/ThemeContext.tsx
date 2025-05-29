@@ -14,8 +14,10 @@ export const ThemeProvider: React.FC<{children: ReactNode}> = ({ children }) => 
     if (typeof window !== 'undefined') {
       const storedTheme = localStorage.getItem('theme') as Theme | null;
       if (storedTheme) return storedTheme;
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    // Default to 'dark' if no theme is found in localStorage
+    return 'dark';
     }
+  // Default to 'dark' on the server or if window is not available
     return 'dark'; 
   });
 
@@ -25,9 +27,13 @@ export const ThemeProvider: React.FC<{children: ReactNode}> = ({ children }) => 
       if (theme === 'dark') {
         document.documentElement.classList.add('dark');
         document.documentElement.classList.remove('light');
+      document.body.classList.add('dark');
+      document.body.classList.remove('light');
       } else {
         document.documentElement.classList.remove('dark');
         document.documentElement.classList.add('light');
+      document.body.classList.remove('dark');
+      document.body.classList.add('light');
       }
     }
   }, [theme]);
