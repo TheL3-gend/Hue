@@ -1,6 +1,4 @@
 module.exports = {
-  plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
-  }
-}
+fix/theme-and-icon-issues
+  plugins: []
+};
