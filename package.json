@@ -17,6 +17,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.7",
+    "@tailwindcss/vite": "^4.1.8",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@types/react": "^18.3.22",
@@ -30,11 +31,24 @@
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.7",
     "jsdom": "^26.1.0",
-    "postcss": "^8.5.3",
-    "tailwindcss": "^4.1.7",
+    "postcss": "^8.5.4",
+    "tailwindcss": "^4.1.8",
     "typescript": "^5.4.5",
     "vite": "^6.3.5",
     "vite-tsconfig-paths": "^4.3.2",
     "vitest": "^3.1.4"
-  }
+  },
+  "description": "The AI Studio App is a web application designed to facilitate interactive coding and problem-solving with the help of a Gemini-powered AI assistant. It allows users to chat with an AI, manage project files, view and edit code in an integrated editor, and receive real-time code updates based on the AI's suggestions. This provides a dynamic environment for development, learning, and experimentation.",
+  "main": "tailwind.config.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheL3-gend/Hue.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/TheL3-gend/Hue/issues"
+  },
+  "homepage": "https://github.com/TheL3-gend/Hue#readme"
 }
