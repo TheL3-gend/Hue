@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from '@/App'; // Using alias
 import { GenAIProvider } from '@contexts/GenAIContext';
 import { ThemeProvider } from '@contexts/ThemeContext'; // Import ThemeProvider
+import './index.css';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
