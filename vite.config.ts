@@ -16,4 +16,10 @@ export default defineConfig({
   },
   // Only env vars prefixed with VITE_ are exposed
   envPrefix: 'VITE_',
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.ts',
+    css: true,
+  },
 })
