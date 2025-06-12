@@ -17,3 +17,4 @@ export default defineConfig({
   // Only env vars prefixed with VITE_ are exposed
   envPrefix: 'VITE_',
 })
+
