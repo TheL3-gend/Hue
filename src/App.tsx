@@ -89,6 +89,38 @@ const AppContent: React.FC = () => {
     let buffer: string[] = [];
     let inBlock = false;
 
+    const finalizeBlock = () => {
+      if (inBlock && fileName) {
+        const content = buffer.join('\n');
+        const apply = window.confirm(`Apply AI changes to ${fileName}?`);
+        if (apply) {
+          setFiles(prev => ({
+            ...prev,
+            [fileName!]: { name: fileName!, content, isNew: !prev[fileName!] },
+          }));
+          newMsgs.push({
+            id: Date.now().toString(),
+            sender: 'ai',
+            text: `Updated file: ${fileName}`,
+            type: 'code_update',
+            fileName,
+            codeContent: content,
+          });
+          setSelectedFile(fileName);
+        } else {
+          newMsgs.push({
+            id: Date.now().toString(),
+            sender: 'system',
+            text: `Discarded AI changes for ${fileName}`,
+            type: 'status',
+          });
+        }
+        buffer = [];
+        inBlock = false;
+        fileName = null;
+      }
+    };
+
     const newMsgs: Message[] = [];
     const newSteps: PlanStep[] = [];
 
@@ -100,16 +132,12 @@ const AppContent: React.FC = () => {
         newSteps.push(step);
         newMsgs.push({ ...step, sender: 'ai', text: desc, type: 'plan_step' });
       } else if (line.startsWith(AiActionType.CODE_UPDATE)) {
-        if (inBlock && fileName) {
-          const content = buffer.join('\n');
-          setFiles(prev => ({ ...prev, [fileName!]: { name: fileName!, content, isNew: !prev[fileName!] } }));
-          newMsgs.push({ id: Date.now().toString(), sender: 'ai', text: `Updated file: ${fileName}`, type: 'code_update', fileName, codeContent: content });
-        }
+        finalizeBlock();
         fileName = line.slice(AiActionType.CODE_UPDATE.length).trim().replace(/`/g, '');
         inBlock = true;
         buffer = [];
       } else if (line.startsWith('```') && inBlock) {
-        inBlock = false;
+        finalizeBlock();
       } else if (inBlock && fileName) {
         buffer.push(raw);
       } else if (line.startsWith(AiActionType.SIMULATING_TEST)) {
@@ -134,6 +162,7 @@ const AppContent: React.FC = () => {
         newMsgs.push({ id: Date.now().toString(), sender: 'ai', text: line });
       }
     }
+    finalizeBlock();
 
     if (newSteps.length) setCurrentPlan(p => [...p, ...newSteps]);
     if (newMsgs.length) setMessages(m => [...m, ...newMsgs]);
@@ -247,7 +276,12 @@ const AppContent: React.FC = () => {
 
       <div className="w-1/3 bg-gray-850 border-l border-gray-700">
         {selectedFile && files[selectedFile] ? (
-          <MonacoEditor language={getMonacoLanguage(selectedFile)} value={files[selectedFile].content} onChange={handleCodeChange} />
+          <MonacoEditor
+            language={getMonacoLanguage(selectedFile)}
+            value={files[selectedFile].content}
+            onChange={handleCodeChange}
+            readOnly={isLoading}
+          />
         ) : (
           <div className="p-6 flex flex-col items-center justify-center text-gray-500">
             <AlertTriangleIcon className="w-16 h-16 mb-4 text-yellow-500" />
