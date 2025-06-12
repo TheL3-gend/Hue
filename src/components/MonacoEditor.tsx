@@ -5,12 +5,14 @@ interface MonacoEditorProps {
   language: string;
   value: string;
   onChange?: (value: string) => void;
+  readOnly?: boolean;
 }
 
 const MonacoEditor: React.FC<MonacoEditorProps> = ({
   language,
   value,
   onChange,
+  readOnly = false,
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const monacoEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -31,6 +33,7 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
           minimap: { enabled: false }, // Disable the minimap
           wordWrap: 'on', // Enable word wrapping
           automaticLayout: true, // Ensure the editor resizes automatically
+          readOnly,
         });
 
         // Attach listener for content changes
@@ -64,6 +67,13 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
       monacoEditorRef.current.setValue(value);
     }
   }, [value]); // Dependency: re-run only if the `value` prop changes.
+
+  // Update readOnly option whenever the prop changes
+  useEffect(() => {
+    if (monacoEditorRef.current) {
+      monacoEditorRef.current.updateOptions({ readOnly });
+    }
+  }, [readOnly]);
 
   return <div ref={editorRef} style={{ width: '100%', height: '500px' }} />;
 };
