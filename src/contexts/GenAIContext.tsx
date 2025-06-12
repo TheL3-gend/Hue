@@ -25,7 +25,7 @@ export function GenAIProvider({ children }: { children: ReactNode }) {
   const [isGenAIInitialized, setIsGenAIInitialized] = useState<boolean>(false);
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
 
-  useMemo(() => {
+  useEffect(() => {
     // Use import.meta.env for Vite environment variables
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (apiKey) {
