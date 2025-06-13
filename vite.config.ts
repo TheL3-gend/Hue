@@ -16,5 +16,15 @@ export default defineConfig({
   },
   // Only env vars prefixed with VITE_ are exposed
   envPrefix: 'VITE_',
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          monaco: ['monaco-editor'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 4000,
+  },
 })
 

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import * as monaco from 'monaco-editor';
+import type * as Monaco from 'monaco-editor';
 
 interface MonacoEditorProps {
   language: string;
@@ -15,44 +15,50 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
   readOnly = false,
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
-  const monacoEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const monacoEditorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
 
   // Effect for initializing and cleaning up the Monaco editor instance.
-  // Runs once when the component mounts (or when language/onChange props change, though language is typically static).
+  // Uses dynamic import so the heavy editor code is split into a separate chunk.
   useEffect(() => {
-    // Only create the editor if the ref is available and an editor instance doesn't already exist.
-    if (editorRef.current && !monacoEditorRef.current) {
+    let cancelled = false;
+
+    async function init() {
+      if (!editorRef.current || monacoEditorRef.current) return;
+
       try {
+        const monaco = await import('monaco-editor');
+        if (cancelled || !editorRef.current) return;
+
         monacoEditorRef.current = monaco.editor.create(editorRef.current, {
-          value: value, // Set the initial value of the editor
-          language: language, // Set the language for syntax highlighting
-          theme: 'vs-dark', // Use the vs-dark theme
-          scrollBeyondLastLine: false, // Disable scrolling beyond the last line
-          fontSize: 14, // Set a default font size
-          renderLineHighlight: 'gutter', // Highlight the active line in the gutter
-          minimap: { enabled: false }, // Disable the minimap
-          wordWrap: 'on', // Enable word wrapping
-          automaticLayout: true, // Ensure the editor resizes automatically
+          value,
+          language,
+          theme: 'vs-dark',
+          scrollBeyondLastLine: false,
+          fontSize: 14,
+          renderLineHighlight: 'gutter',
+          minimap: { enabled: false },
+          wordWrap: 'on',
+          automaticLayout: true,
           readOnly,
         });
 
-        // Attach listener for content changes
         monacoEditorRef.current.onDidChangeModelContent(() => {
           if (onChange) {
             onChange(monacoEditorRef.current?.getValue() || '');
           }
         });
       } catch (error) {
-        console.error('Failed to create Monaco editor:', error);
+        console.error('Failed to load Monaco editor:', error);
       }
     }
 
+    init();
+
     // Cleanup function: dispose the editor instance when the component unmounts.
     return () => {
+      cancelled = true;
       if (monacoEditorRef.current) {
         monacoEditorRef.current.dispose();
-        // Set the ref to null to indicate the editor instance is gone.
-        // This helps in re-initialization if the component is remounted.
         monacoEditorRef.current = null;
       }
     };
