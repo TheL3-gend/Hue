@@ -32,9 +32,9 @@ const ChatWindow: React.FC<{ messages: Message[] }> = ({ messages }) => {
                 ? 'bg-red-700 bg-opacity-50 text-red-100 rounded-bl-none border border-red-600'
                 : 'bg-gray-700 text-gray-200 rounded-bl-none'
           }`}>
-            {msg.sender === 'ai' && msg.type !== 'error' && <BotIcon className="w-6 h-6 text-indigo-400 flex-shrink-0 mt-0.5" />}
-            {msg.sender === 'ai' && msg.type === 'error' && <AlertTriangleIcon className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" />}
-             {msg.sender === 'user' && <UserIcon className="w-6 h-6 text-gray-300 flex-shrink-0 mt-0.5" />}
+            {msg.sender === 'ai' && msg.type !== 'error' && <BotIcon className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" />}
+            {msg.sender === 'ai' && msg.type === 'error' && <AlertTriangleIcon className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />}
+            {msg.sender === 'user' && <UserIcon className="w-5 h-5 text-gray-300 flex-shrink-0 mt-0.5" />}
             
             <div className="flex-grow">
               <div className="flex items-center mb-0.5">
